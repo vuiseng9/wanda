@@ -2,27 +2,38 @@ import argparse
 import os 
 import numpy as np
 import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+from transformers import AutoTokenizer, AutoModelForCausalLM, AutoConfig
 from importlib.metadata import version
 
 from lib.prune import prune_wanda, prune_magnitude, prune_sparsegpt, prune_ablate, check_sparsity, find_layers
 from lib.eval import eval_ppl, eval_zero_shot
+import json
 
 print('torch', version('torch'))
 print('transformers', version('transformers'))
 print('accelerate', version('accelerate'))
 print('# of gpus: ', torch.cuda.device_count())
 
-def get_llm(model_name, cache_dir="llm_weights"):
+def get_llm(model_name, cache_dir=None):
+    cfg = AutoConfig.from_pretrained(model_name)
+
+    if not cfg.torch_dtype:
+        raise ValueError("torch_dtype not in config.json")
+    
+        if not isinstance(cfg.torch_dtype, tuple(torch.bfloat16, torch.float16)):
+            raise ValueError("cfg.torch_dtype is not 16 bit, pls review")
+
     model = AutoModelForCausalLM.from_pretrained(
         model_name, 
-        torch_dtype=torch.float16, 
+        torch_dtype=cfg.torch_dtype, # we set according to config.json
         cache_dir=cache_dir, 
         low_cpu_mem_usage=True, 
         device_map="auto"
     )
 
-    model.seqlen = model.config.max_position_embeddings 
+    model.seqlen = model.config.max_position_embeddings
+    if model.seqlen >= 4096:
+        model.seqlen = 4096 # model.seqlen is used to set the input prompt length, model like llama3 has over 130K position emb, this breaks the flow logic and memory usage 
     return model
 
 def main():
@@ -37,11 +48,14 @@ def main():
     parser.add_argument("--cache_dir", default="llm_weights", type=str )
     parser.add_argument('--use_variant', action="store_true", help="whether to use the wanda variant described in the appendix")
     parser.add_argument('--save', type=str, default=None, help='Path to save results.')
-    parser.add_argument('--save_model', type=str, default=None, help='Path to save the pruned model.')
+    parser.add_argument('--save_model', action='store_true', help='save the pruned model to path specified through --save')
 
     parser.add_argument("--eval_zero_shot", action="store_true")
     args = parser.parse_args()
 
+    if args.save_model is True and args.save is None:
+        raise ValueError("--save must be set for --save_model")
+    
     # Setting seeds for reproducibility
     np.random.seed(args.seed)
     torch.random.manual_seed(args.seed)
@@ -103,8 +117,10 @@ def main():
         print(results)
 
     if args.save_model:
-        model.save_pretrained(args.save_model)
-        tokenizer.save_pretrained(args.save_model)
+        with open(args.save +"/pruning_args.json", "w") as f:
+            json.dump(vars(args), f, indent=4) 
+        model.save_pretrained(args.save)
+        tokenizer.save_pretrained(args.save)
 
 if __name__ == '__main__':
     main()
