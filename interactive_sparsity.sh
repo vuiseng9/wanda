@@ -1,0 +1,1 @@
+ipython -i -c "from lookup_sparsity_blob import *"

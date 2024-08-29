@@ -1,3 +1,5 @@
+# SEE branch.vsnotes.md !!
+
 # Pruning LLMs by Weights and Activations
 Official PyTorch implementation of **Wanda** (Pruning by **W**eights **and a**ctivations), as presented in our paper:
 
