@@ -116,6 +116,7 @@ class SparseBlob:
                 outdict={
                     "tile_id": tile_id,
                     "layer_id": l,
+                    "layer_sparsity": row['sparsity'],
                     "tiled by": row['tile_shape'],
                     "tile_sparsity": self._blob[l]['tile_sparsity'][tile_id].item(),
                     **get_stats(self._blob[l]['tile_sparsity_per_col'][tile_id], label="col"),
