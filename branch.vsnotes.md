@@ -23,7 +23,5 @@ branch.vsnotes.md
     This file, important documentation!
 
 
-bak.reporter.py
-llm_weights/
-reporter.py
-        
+See this hf repo that captures only the reports and blobs for interactive use.
+https://huggingface.co/vuiseng9/24-0830-wanda-llama3.1-8B
